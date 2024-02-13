@@ -1,4 +1,6 @@
-# Nob artifacts
+.vscode/
+
+# nob artifacts
 build/
 nob.exe
 nob.exe.old
