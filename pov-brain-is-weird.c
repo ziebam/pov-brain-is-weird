@@ -83,17 +83,18 @@ int main(void)
 {
     SetRandomSeed(time(NULL));
 
-    bool state[COLS][ROWS] = {false};
-    init_state(state);
-
+    Image icon = LoadImage("./resources/pov-you-wake-up-in-poland.png");
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
+    SetWindowIcon(icon);
     SetTargetFPS(60);
 
+    bool state[COLS][ROWS] = {false};
+    init_state(state);
     bool paused = false;
-    // Input polling is done per frame, so I'm counting the frames manually to slow down the "visualization".
-    int frameCount = 0;
-
-    int x1, y1, x2, y2;
+    // Input polling is done per frame, so I'm counting the frames manually to slow down the
+    // rendering while keeping the controls responsive.
+    unsigned int frameCount = 0;
+    unsigned short x1, y1, x2, y2;
     while (!WindowShouldClose())
     {
         if (IsKeyPressed(KEY_P))
@@ -124,7 +125,7 @@ int main(void)
         EndDrawing();
 
         frameCount += 1;
-        // Should never happen, but let's prevent integer overflows.
+        // Oerflows should never happen, but let's prevent them just in case.
         if (frameCount >= 60)
             frameCount %= 60;
     }
