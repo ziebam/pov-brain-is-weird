@@ -73,13 +73,15 @@ defer:
     return result;
 }
 
-bool build_pov_brain_is_weird()
+bool build_pov_brain_is_weird(bool plaform_windows)
 {
     bool result = true;
 
     Nob_Cmd cmd = {0};
     nob_cmd_append(&cmd, "gcc");
-    nob_cmd_append(&cmd, "-mwindows");
+    if(plaform_windows){
+        nob_cmd_append(&cmd, "-mwindows");
+    }
     nob_cmd_append(&cmd, "-Wall", "-Wextra");
     nob_cmd_append(&cmd, "-I./build/");
     nob_cmd_append(&cmd, "-I./raylib/raylib-5.0/src/");
@@ -87,9 +89,11 @@ bool build_pov_brain_is_weird()
     nob_cmd_append(&cmd, "./pov-brain-is-weird.c");
     nob_cmd_append(&cmd, "-L./build/raylib/gcc");
     nob_cmd_append(&cmd, "-l:libraylib.a");
-    nob_cmd_append(&cmd, "-lwinmm", "-lgdi32");
-    nob_cmd_append(&cmd, "-static");
-
+    nob_cmd_append(&cmd, "-lm");
+    if(plaform_windows){
+        nob_cmd_append(&cmd, "-lwinmm", "-lgdi32");
+        nob_cmd_append(&cmd, "-static");
+    }
     if (!nob_cmd_run_sync(cmd))
         nob_return_defer(false);
 
@@ -98,8 +102,31 @@ defer:
     return result;
 }
 
+void print_usage(void)
+{
+    fprintf(stderr, "nob [-platform] [platform]\n");
+    fprintf(stderr, "\tplatforms supported: windows, linux\n");
+}
+
 int main(int argc, char **argv)
 {
+    bool plaform_windows = true;
+    if(argc!=1){
+        if(strcmp(argv[1], "-platform")==0){
+            if(strcmp(argv[2], "linux")==0){
+                plaform_windows = false;
+            } else if (strcmp(argv[2], "windows")==0){
+                plaform_windows = false;
+            } else {
+                fprintf(stderr, "Error: unsupported OS\n");
+                print_usage();
+                exit(69);
+            }
+        } else {
+            print_usage();
+            exit(69);
+        }
+    }
     NOB_GO_REBUILD_URSELF(argc, argv);
 
     if (!nob_mkdir_if_not_exists("build"))
@@ -107,7 +134,7 @@ int main(int argc, char **argv)
 
     if (!build_raylib())
         return 1;
-    if (!build_pov_brain_is_weird())
+    if (!build_pov_brain_is_weird(plaform_windows))
         return 1;
 
     return 0;
