@@ -104,30 +104,31 @@ defer:
 
 void print_usage(void)
 {
-    fprintf(stderr, "nob [-platform] [platform]\n");
-    fprintf(stderr, "\tplatforms supported: windows, linux\n");
+    nob_log(NOB_INFO, "usage [./]nob [-platform] [platform]");
+    nob_log(NOB_INFO, "platforms supported: windows, linux");
 }
 
 int main(int argc, char **argv)
 {
+    NOB_GO_REBUILD_URSELF(argc, argv);
+
     bool plaform_windows = true;
     if(argc!=1){
         if(strcmp(argv[1], "-platform")==0){
             if(strcmp(argv[2], "linux")==0){
                 plaform_windows = false;
             } else if (strcmp(argv[2], "windows")==0){
-                plaform_windows = false;
+                plaform_windows = true;
             } else {
-                fprintf(stderr, "Error: unsupported OS\n");
+                nob_log(NOB_ERROR, "unsupported platform\n");
                 print_usage();
-                exit(69);
+                exit(1);
             }
         } else {
             print_usage();
-            exit(69);
+            exit(1);
         }
     }
-    NOB_GO_REBUILD_URSELF(argc, argv);
 
     if (!nob_mkdir_if_not_exists("build"))
         return 1;
