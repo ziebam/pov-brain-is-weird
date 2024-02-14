@@ -4,7 +4,8 @@ simple toy to showcase the persistence of vision phenomenon discussed in [this v
 
 try starting the below demo. when it's running, you will seemingly notice lines flickering on the screen, but they disappear as soon as you pause or take a screenshot.
 
-![demo](./demo.mp4)
+https://github.com/ziebam/pov-brain-is-weird/assets/31964869/1f517c27-9b61-4cb3-a452-a46d5d4b7cea
+
 
 # build
 
