@@ -79,9 +79,12 @@ bool build_pov_brain_is_weird(bool plaform_windows)
 
     Nob_Cmd cmd = {0};
     nob_cmd_append(&cmd, "gcc");
-    if(plaform_windows){
+
+    if (plaform_windows)
+    {
         nob_cmd_append(&cmd, "-mwindows");
     }
+
     nob_cmd_append(&cmd, "-Wall", "-Wextra");
     nob_cmd_append(&cmd, "-I./build/");
     nob_cmd_append(&cmd, "-I./raylib/raylib-5.0/src/");
@@ -89,11 +92,14 @@ bool build_pov_brain_is_weird(bool plaform_windows)
     nob_cmd_append(&cmd, "./pov-brain-is-weird.c");
     nob_cmd_append(&cmd, "-L./build/raylib/gcc");
     nob_cmd_append(&cmd, "-l:libraylib.a");
-    nob_cmd_append(&cmd, "-lm");
-    if(plaform_windows){
+    nob_cmd_append(&cmd, "-lm"); // needed on Linux, doesn't cause issues on Windows
+
+    if (plaform_windows)
+    {
         nob_cmd_append(&cmd, "-lwinmm", "-lgdi32");
         nob_cmd_append(&cmd, "-static");
     }
+
     if (!nob_cmd_run_sync(cmd))
         nob_return_defer(false);
 
@@ -104,7 +110,7 @@ defer:
 
 void print_usage(void)
 {
-    nob_log(NOB_INFO, "usage [./]nob [-platform] [platform]");
+    nob_log(NOB_INFO, "usage: [./]nob [-platform] [platform]");
     nob_log(NOB_INFO, "platforms supported: windows, linux");
 }
 
@@ -113,20 +119,29 @@ int main(int argc, char **argv)
     NOB_GO_REBUILD_URSELF(argc, argv);
 
     bool plaform_windows = true;
-    if(argc!=1){
-        if(strcmp(argv[1], "-platform")==0){
-            if(strcmp(argv[2], "linux")==0){
+    if (argc != 1)
+    {
+        if (strcmp(argv[1], "-platform") == 0)
+        {
+            if (strcmp(argv[2], "linux") == 0)
+            {
                 plaform_windows = false;
-            } else if (strcmp(argv[2], "windows")==0){
+            }
+            else if (strcmp(argv[2], "windows") == 0)
+            {
                 plaform_windows = true;
-            } else {
+            }
+            else
+            {
                 nob_log(NOB_ERROR, "unsupported platform\n");
                 print_usage();
-                exit(1);
+                return 1;
             }
-        } else {
+        }
+        else
+        {
             print_usage();
-            exit(1);
+            return 1;
         }
     }
 
