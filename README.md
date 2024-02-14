@@ -6,19 +6,18 @@ try starting the below demo. when it's running, you will seemingly notice lines 
 
 https://github.com/ziebam/pov-brain-is-weird/assets/31964869/1f517c27-9b61-4cb3-a452-a46d5d4b7cea
 
-
 # build
 
-you can build this project locally on Windows (sorry Linux/macOS folks).
+you can build this project locally on Windows by default and on Linux with the `-platform` flag (sorry macOS folks).
 
-requirements: `gcc` and `ar` available in the path.
+requirements: `gcc` and `ar` available in the PATH.
 
 steps:
 
 1. clone the repo
-2. `gcc ./nob.c -o nob.exe`
-3. `./nob.exe`
-4. `./build/pov-brain-is-weird.exe`
+2. `gcc ./nob.c -o nob`
+3. `./nob` or `./nob -platform windows` for Windows or `nob -platform linux` for Linux
+4. `./build/pov-brain-is-weird`
 
 # credits
 
