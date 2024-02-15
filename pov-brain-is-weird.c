@@ -6,10 +6,9 @@
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define TILE_WIDTH 10
-#define TILE_HEIGHT 10
-#define ROWS WINDOW_HEIGHT / TILE_HEIGHT
-#define COLS WINDOW_WIDTH / TILE_WIDTH
+#define TILE_SIZE 10
+#define ROWS WINDOW_HEIGHT / TILE_SIZE
+#define COLS WINDOW_WIDTH / TILE_SIZE
 
 typedef enum Screen
 {
@@ -25,11 +24,11 @@ typedef struct
     int titleBarHeight;
 } MenuState;
 
-void init_state(bool state[COLS][ROWS])
+void init_state(bool state[ROWS][COLS])
 {
-    for (size_t y = 0; y < ROWS; ++y)
+    for (size_t y = 0; y < ROWS; y++)
     {
-        for (size_t x = 0; x < COLS; ++x)
+        for (size_t x = 0; x < COLS; x++)
         {
             state[y][x] = GetRandomValue(0, 1);
         }
@@ -48,7 +47,7 @@ int get_sign(int n)
 
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
 // with any slope. Credit: https://www.uobabylon.edu.iq/eprints/publication_2_22893_6215.pdf.
-void line(bool state[COLS][ROWS], int x1, int y1, int x2, int y2)
+void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2)
 {
     int dx, dy, x, y, e, a, b, s1, s2, swapped = 0, temp;
 
@@ -124,13 +123,13 @@ int main(void)
 
     Screen currentScreen = MENU;
     MenuState menuState = {
-        .rows = 4,
+        .rows = 3,
         .cols = 4,
         .spacing = 50,
         .titleBarHeight = 40,
     };
 
-    bool state[COLS][ROWS] = {false};
+    bool state[ROWS][COLS] = {false};
     init_state(state);
     bool paused = false;
     // Input polling is done per frame, so I'm counting the frames manually to slow down the
@@ -200,7 +199,7 @@ int main(void)
                 {
                     if (state[y][x])
                     {
-                        DrawRectangle(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT, BLACK);
+                        DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
                     }
                 }
             }
