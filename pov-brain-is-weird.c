@@ -11,6 +11,20 @@
 #define ROWS WINDOW_HEIGHT / TILE_HEIGHT
 #define COLS WINDOW_WIDTH / TILE_WIDTH
 
+typedef enum Screen
+{
+    MENU = 0,
+    LINES
+} Screen;
+
+typedef struct
+{
+    int rows;
+    int cols;
+    int spacing;
+    int titleBarHeight;
+} MenuState;
+
 void init_state(bool state[COLS][ROWS])
 {
     for (size_t y = 0; y < ROWS; ++y)
@@ -34,7 +48,7 @@ int get_sign(int n)
 
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
 // with any slope. Credit: https://www.uobabylon.edu.iq/eprints/publication_2_22893_6215.pdf.
-void flip_cells_alongside_line(bool state[COLS][ROWS], int x1, int y1, int x2, int y2)
+void line(bool state[COLS][ROWS], int x1, int y1, int x2, int y2)
 {
     int dx, dy, x, y, e, a, b, s1, s2, swapped = 0, temp;
 
@@ -79,14 +93,42 @@ void flip_cells_alongside_line(bool state[COLS][ROWS], int x1, int y1, int x2, i
     }
 }
 
+void draw_menu_tiles(MenuState menuState)
+{
+    float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
+    float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
+    for (int i = 0; i < menuState.cols; i++)
+    {
+        for (int j = 0; j < menuState.rows; j++)
+        {
+            Rectangle outline = {
+                .x = menuState.spacing * (i + 1) + outlineWidth * i,
+                .y = menuState.titleBarHeight + menuState.spacing * (j + 1) + outlineHeight * j,
+                .width = outlineWidth,
+                .height = outlineHeight,
+            };
+            DrawRectangleLinesEx(outline, 5.0f, MAROON);
+        }
+    }
+}
+
 int main(void)
 {
     SetRandomSeed(time(NULL));
 
-    Image icon = LoadImage("./resources/pov-you-wake-up-in-poland.png");
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
+    SetExitKey(KEY_NULL);
+    Image icon = LoadImage("./resources/pov-you-wake-up-in-poland.png");
     SetWindowIcon(icon);
     SetTargetFPS(60);
+
+    Screen currentScreen = MENU;
+    MenuState menuState = {
+        .rows = 4,
+        .cols = 4,
+        .spacing = 50,
+        .titleBarHeight = 40,
+    };
 
     bool state[COLS][ROWS] = {false};
     init_state(state);
@@ -97,37 +139,79 @@ int main(void)
     unsigned short x1, y1, x2, y2;
     while (!WindowShouldClose())
     {
-        if (IsKeyPressed(KEY_P))
-            paused = !paused;
+        frameCount = (frameCount + 1) % 60;
 
-        x1 = GetRandomValue(0, COLS);
-        y1 = GetRandomValue(0, ROWS);
-        x2 = GetRandomValue(0, COLS);
-        y2 = GetRandomValue(0, ROWS);
+        switch (currentScreen)
+        {
+        case MENU:
+        {
+            if (IsKeyPressed(KEY_ENTER))
+                currentScreen = LINES;
+        }
+        break;
+
+        case LINES:
+        {
+            if (IsKeyPressed(KEY_P))
+                paused = !paused;
+
+            if (IsKeyPressed(KEY_ESCAPE))
+                currentScreen = MENU;
+        }
+        break;
+
+        default:
+            break;
+        }
 
         BeginDrawing();
-        ClearBackground(WHITE);
 
-        for (size_t y = 0; y < ROWS; y++)
+        ClearBackground(RAYWHITE);
+
+        switch (currentScreen)
         {
-            for (size_t x = 0; x < COLS; x++)
+        case MENU:
+        {
+            DrawText("pov: brain is weird",
+                     WINDOW_WIDTH / 2 - MeasureText("pov: brain is weird", 20) / 2, 10,
+                     20, BLACK);
+
+            Vector2 separatorStart = {0, menuState.titleBarHeight};
+            Vector2 separatorEnd = {WINDOW_WIDTH, menuState.titleBarHeight};
+            DrawLineEx(separatorStart, separatorEnd, 3, BLACK);
+
+            draw_menu_tiles(menuState);
+        }
+        break;
+
+        case LINES:
+        {
+            x1 = GetRandomValue(0, COLS);
+            y1 = GetRandomValue(0, ROWS);
+            x2 = GetRandomValue(0, COLS);
+            y2 = GetRandomValue(0, ROWS);
+
+            if (!paused && frameCount % 15 == 0)
+                line(state, x1, y1, x2, y2);
+
+            for (size_t y = 0; y < ROWS; y++)
             {
-                if (state[y][x] == 1)
+                for (size_t x = 0; x < COLS; x++)
                 {
-                    DrawRectangle(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT, BLACK);
+                    if (state[y][x])
+                    {
+                        DrawRectangle(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT, BLACK);
+                    }
                 }
             }
         }
+        break;
 
-        if (!paused && frameCount % 15 == 0)
-            flip_cells_alongside_line(state, x1, y1, x2, y2);
+        default:
+            break;
+        }
 
         EndDrawing();
-
-        frameCount += 1;
-        // Oerflows should never happen, but let's prevent them just in case.
-        if (frameCount >= 60)
-            frameCount %= 60;
     }
 
     CloseWindow();
