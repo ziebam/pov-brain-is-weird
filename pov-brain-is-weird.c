@@ -6,24 +6,24 @@
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define TILE_WIDTH 10
-#define TILE_HEIGHT 10
-#define ROWS WINDOW_HEIGHT / TILE_HEIGHT
-#define COLS WINDOW_WIDTH / TILE_WIDTH
+#define TILE_SIZE 10
+#define ROWS WINDOW_HEIGHT / TILE_SIZE
+#define COLS WINDOW_WIDTH / TILE_SIZE
 
-void init_state(bool state[COLS][ROWS])
-{
-    for (size_t y = 0; y < ROWS; ++y)
-    {
-        for (size_t x = 0; x < COLS; ++x)
-        {
-            state[y][x] = GetRandomValue(0, 1);
-        }
-    }
-}
+typedef enum Screen {
+    MENU = 0,
+    LINES
+} Screen;
 
-int get_sign(int n)
-{
+typedef struct {
+    int rows;
+    int cols;
+    int spacing;
+    int titleBarHeight;
+    Vector2 selectedTile;
+} MenuState;
+
+int getSign(int n) {
     if (n > 0)
         return 1;
     else if (n < 0)
@@ -32,20 +32,30 @@ int get_sign(int n)
         return 0;
 }
 
+int euclideanModulo(int a, int b) {
+    return (a % b + b) % b;
+}
+
+void initState(bool state[ROWS][COLS]) {
+    for (size_t y = 0; y < ROWS; y++) {
+        for (size_t x = 0; x < COLS; x++) {
+            state[y][x] = GetRandomValue(0, 1);
+        }
+    }
+}
+
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
 // with any slope. Credit: https://www.uobabylon.edu.iq/eprints/publication_2_22893_6215.pdf.
-void flip_cells_alongside_line(bool state[COLS][ROWS], int x1, int y1, int x2, int y2)
-{
+void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     int dx, dy, x, y, e, a, b, s1, s2, swapped = 0, temp;
 
     dx = abs(x2 - x1);
     dy = abs(y2 - y1);
 
-    s1 = get_sign(x2 - x1);
-    s2 = get_sign(y2 - y1);
+    s1 = getSign(x2 - x1);
+    s2 = getSign(y2 - y1);
 
-    if (dy > dx)
-    {
+    if (dy > dx) {
         temp = dx;
         dx = dy;
         dy = temp;
@@ -58,20 +68,16 @@ void flip_cells_alongside_line(bool state[COLS][ROWS], int x1, int y1, int x2, i
 
     x = x1;
     y = y1;
-    for (int i = 1; i < dx; i++)
-    {
+    for (int i = 1; i < dx; i++) {
         state[y][x] = !state[y][x];
 
-        if (e < 0)
-        {
+        if (e < 0) {
             if (swapped)
                 y = y + s2;
             else
                 x = x + s1;
             e = e + a;
-        }
-        else
-        {
+        } else {
             y = y + s2;
             x = x + s1;
             e = e + b;
@@ -79,55 +85,129 @@ void flip_cells_alongside_line(bool state[COLS][ROWS], int x1, int y1, int x2, i
     }
 }
 
-int main(void)
-{
+const char *tileNames[] = {"lines", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
+void drawMenuTiles(MenuState menuState) {
+    float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
+    float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
+    for (int i = 0; i < menuState.rows; i++) {
+        for (int j = 0; j < menuState.cols; j++) {
+            short tileIdx = i * menuState.cols + j;
+
+            float x = menuState.spacing * (j + 1) + outlineWidth * j;
+            float y = menuState.titleBarHeight + menuState.spacing * (i + 1) + outlineHeight * i;
+            float width = outlineWidth;
+            float height = outlineHeight;
+
+            Rectangle tile = {
+                .x = x,
+                .y = y,
+                .width = width,
+                .height = height,
+            };
+            Color tileColor = (i == menuState.selectedTile.y && j == menuState.selectedTile.x) ? MAROON : BLACK;
+            DrawRectangleLinesEx(tile, 5.0f, tileColor);
+
+            const char *tileName = tileNames[tileIdx];
+            DrawText(tileName,
+                     x + width / 2 - MeasureText(tileName, 20) / 2, y + height / 2 - 10,
+                     20, BLACK);
+        }
+    }
+}
+
+const Screen screens[] = {LINES, MENU, MENU, MENU, MENU, MENU};
+int main(void) {
     SetRandomSeed(time(NULL));
 
-    Image icon = LoadImage("./resources/pov-you-wake-up-in-poland.png");
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
-    SetWindowIcon(icon);
+    SetExitKey(KEY_NULL);
+    SetWindowIcon(LoadImage("./resources/pov-you-wake-up-in-poland.png"));
     SetTargetFPS(60);
 
-    bool state[COLS][ROWS] = {false};
-    init_state(state);
+    Screen currentScreen = MENU;
+    MenuState menuState = {
+        .rows = 2,
+        .cols = 3,
+        .spacing = 40,
+        .titleBarHeight = 40,
+        .selectedTile = {0, 0},
+    };
+
+    bool state[ROWS][COLS] = {false};
+    initState(state);
     bool paused = false;
     // Input polling is done per frame, so I'm counting the frames manually to slow down the
     // rendering while keeping the controls responsive.
     unsigned int frameCount = 0;
     unsigned short x1, y1, x2, y2;
-    while (!WindowShouldClose())
-    {
-        if (IsKeyPressed(KEY_P))
-            paused = !paused;
+    while (!WindowShouldClose()) {
+        frameCount = (frameCount + 1) % 60;
 
-        x1 = GetRandomValue(0, COLS);
-        y1 = GetRandomValue(0, ROWS);
-        x2 = GetRandomValue(0, COLS);
-        y2 = GetRandomValue(0, ROWS);
-
-        BeginDrawing();
-        ClearBackground(WHITE);
-
-        for (size_t y = 0; y < ROWS; y++)
-        {
-            for (size_t x = 0; x < COLS; x++)
-            {
-                if (state[y][x] == 1)
-                {
-                    DrawRectangle(x * TILE_WIDTH, y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT, BLACK);
+        switch (currentScreen) {
+            case MENU: {
+                if (IsKeyPressed(KEY_ENTER)) {
+                    short screenIdx = menuState.selectedTile.y * menuState.cols + menuState.selectedTile.x;
+                    currentScreen = screens[screenIdx];
                 }
-            }
+
+                if (IsKeyPressed(KEY_LEFT))
+                    menuState.selectedTile.x = euclideanModulo((int)menuState.selectedTile.x - 1, menuState.cols);
+                if (IsKeyPressed(KEY_UP))
+                    menuState.selectedTile.y = euclideanModulo((int)menuState.selectedTile.y - 1, menuState.rows);
+                if (IsKeyPressed(KEY_RIGHT))
+                    menuState.selectedTile.x = ((int)menuState.selectedTile.x + 1) % menuState.cols;
+                if (IsKeyPressed(KEY_DOWN))
+                    menuState.selectedTile.y = ((int)menuState.selectedTile.y + 1) % menuState.rows;
+            } break;
+
+            case LINES: {
+                if (IsKeyPressed(KEY_ESCAPE)) currentScreen = MENU;
+
+                if (IsKeyPressed(KEY_P)) paused = !paused;
+            } break;
+
+            default:
+                break;
         }
 
-        if (!paused && frameCount % 15 == 0)
-            flip_cells_alongside_line(state, x1, y1, x2, y2);
+        BeginDrawing();
+
+        ClearBackground(RAYWHITE);
+
+        switch (currentScreen) {
+            case MENU: {
+                DrawText("pov: brain is weird",
+                         WINDOW_WIDTH / 2 - MeasureText("pov: brain is weird", 20) / 2, 10,
+                         20, BLACK);
+
+                Vector2 separatorStart = {0, menuState.titleBarHeight};
+                Vector2 separatorEnd = {WINDOW_WIDTH, menuState.titleBarHeight};
+                DrawLineEx(separatorStart, separatorEnd, 3, BLACK);
+
+                drawMenuTiles(menuState);
+            } break;
+
+            case LINES: {
+                x1 = GetRandomValue(0, COLS);
+                y1 = GetRandomValue(0, ROWS);
+                x2 = GetRandomValue(0, COLS);
+                y2 = GetRandomValue(0, ROWS);
+
+                if (!paused && frameCount % 15 == 0) line(state, x1, y1, x2, y2);
+
+                for (size_t y = 0; y < ROWS; y++) {
+                    for (size_t x = 0; x < COLS; x++) {
+                        if (state[y][x])
+                            DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
+                    }
+                }
+            } break;
+
+            default:
+                break;
+        }
 
         EndDrawing();
-
-        frameCount += 1;
-        // Oerflows should never happen, but let's prevent them just in case.
-        if (frameCount >= 60)
-            frameCount %= 60;
     }
 
     CloseWindow();
