@@ -10,14 +10,12 @@
 #define ROWS WINDOW_HEIGHT / TILE_SIZE
 #define COLS WINDOW_WIDTH / TILE_SIZE
 
-typedef enum Screen
-{
+typedef enum Screen {
     MENU = 0,
     LINES
 } Screen;
 
-typedef struct
-{
+typedef struct {
     int rows;
     int cols;
     int spacing;
@@ -25,8 +23,7 @@ typedef struct
     Vector2 selectedTile;
 } MenuState;
 
-int get_sign(int n)
-{
+int getSign(int n) {
     if (n > 0)
         return 1;
     else if (n < 0)
@@ -35,17 +32,13 @@ int get_sign(int n)
         return 0;
 }
 
-int euclidean_modulo(int a, int b)
-{
+int euclideanModulo(int a, int b) {
     return (a % b + b) % b;
 }
 
-void init_state(bool state[ROWS][COLS])
-{
-    for (size_t y = 0; y < ROWS; y++)
-    {
-        for (size_t x = 0; x < COLS; x++)
-        {
+void initState(bool state[ROWS][COLS]) {
+    for (size_t y = 0; y < ROWS; y++) {
+        for (size_t x = 0; x < COLS; x++) {
             state[y][x] = GetRandomValue(0, 1);
         }
     }
@@ -53,18 +46,16 @@ void init_state(bool state[ROWS][COLS])
 
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
 // with any slope. Credit: https://www.uobabylon.edu.iq/eprints/publication_2_22893_6215.pdf.
-void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2)
-{
+void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     int dx, dy, x, y, e, a, b, s1, s2, swapped = 0, temp;
 
     dx = abs(x2 - x1);
     dy = abs(y2 - y1);
 
-    s1 = get_sign(x2 - x1);
-    s2 = get_sign(y2 - y1);
+    s1 = getSign(x2 - x1);
+    s2 = getSign(y2 - y1);
 
-    if (dy > dx)
-    {
+    if (dy > dx) {
         temp = dx;
         dx = dy;
         dy = temp;
@@ -77,20 +68,16 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2)
 
     x = x1;
     y = y1;
-    for (int i = 1; i < dx; i++)
-    {
+    for (int i = 1; i < dx; i++) {
         state[y][x] = !state[y][x];
 
-        if (e < 0)
-        {
+        if (e < 0) {
             if (swapped)
                 y = y + s2;
             else
                 x = x + s1;
             e = e + a;
-        }
-        else
-        {
+        } else {
             y = y + s2;
             x = x + s1;
             e = e + b;
@@ -98,15 +85,12 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2)
     }
 }
 
-char tile_names[6][16] = {"placeholder", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
-void draw_menu_tiles(MenuState menuState)
-{
+const char *tileNames[] = {"placeholder", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
+void drawMenuTiles(MenuState menuState) {
     float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
     float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
-    for (int i = 0; i < menuState.rows; i++)
-    {
-        for (int j = 0; j < menuState.cols; j++)
-        {
+    for (int i = 0; i < menuState.rows; i++) {
+        for (int j = 0; j < menuState.cols; j++) {
             short tileIdx = i * menuState.cols + j;
 
             float x = menuState.spacing * (j + 1) + outlineWidth * j;
@@ -123,7 +107,7 @@ void draw_menu_tiles(MenuState menuState)
             Color tileColor = (i == menuState.selectedTile.y && j == menuState.selectedTile.x) ? MAROON : BLACK;
             DrawRectangleLinesEx(tile, 5.0f, tileColor);
 
-            const char *tileName = tile_names[tileIdx];
+            const char *tileName = tileNames[tileIdx];
             DrawText(tileName,
                      x + width / 2 - MeasureText(tileName, 20) / 2, y + height / 2 - 10,
                      20, BLACK);
@@ -131,8 +115,7 @@ void draw_menu_tiles(MenuState menuState)
     }
 }
 
-int main(void)
-{
+int main(void) {
     SetRandomSeed(time(NULL));
 
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
@@ -150,93 +133,74 @@ int main(void)
     };
 
     bool state[ROWS][COLS] = {false};
-    init_state(state);
+    initState(state);
     bool paused = false;
     // Input polling is done per frame, so I'm counting the frames manually to slow down the
     // rendering while keeping the controls responsive.
     unsigned int frameCount = 0;
     unsigned short x1, y1, x2, y2;
-    while (!WindowShouldClose())
-    {
+    while (!WindowShouldClose()) {
         frameCount = (frameCount + 1) % 60;
 
-        switch (currentScreen)
-        {
-        case MENU:
-        {
-            if (IsKeyPressed(KEY_ENTER))
-                currentScreen = LINES;
+        switch (currentScreen) {
+            case MENU: {
+                if (IsKeyPressed(KEY_ENTER)) currentScreen = LINES;
 
-            if (IsKeyPressed(KEY_LEFT))
-                menuState.selectedTile.x = euclidean_modulo((int)menuState.selectedTile.x - 1, menuState.cols);
-            if (IsKeyPressed(KEY_UP))
-                menuState.selectedTile.y = euclidean_modulo((int)menuState.selectedTile.y - 1, menuState.rows);
-            if (IsKeyPressed(KEY_RIGHT))
-                menuState.selectedTile.x = ((int)menuState.selectedTile.x + 1) % menuState.cols;
-            if (IsKeyPressed(KEY_DOWN))
-                menuState.selectedTile.y = ((int)menuState.selectedTile.y + 1) % menuState.rows;
-        }
-        break;
+                if (IsKeyPressed(KEY_LEFT))
+                    menuState.selectedTile.x = euclideanModulo((int)menuState.selectedTile.x - 1, menuState.cols);
+                if (IsKeyPressed(KEY_UP))
+                    menuState.selectedTile.y = euclideanModulo((int)menuState.selectedTile.y - 1, menuState.rows);
+                if (IsKeyPressed(KEY_RIGHT))
+                    menuState.selectedTile.x = ((int)menuState.selectedTile.x + 1) % menuState.cols;
+                if (IsKeyPressed(KEY_DOWN))
+                    menuState.selectedTile.y = ((int)menuState.selectedTile.y + 1) % menuState.rows;
+            } break;
 
-        case LINES:
-        {
-            if (IsKeyPressed(KEY_P))
-                paused = !paused;
+            case LINES: {
+                if (IsKeyPressed(KEY_ESCAPE)) currentScreen = MENU;
 
-            if (IsKeyPressed(KEY_ESCAPE))
-                currentScreen = MENU;
-        }
-        break;
+                if (IsKeyPressed(KEY_P)) paused = !paused;
+            } break;
 
-        default:
-            break;
+            default:
+                break;
         }
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
 
-        switch (currentScreen)
-        {
-        case MENU:
-        {
-            DrawText("pov: brain is weird",
-                     WINDOW_WIDTH / 2 - MeasureText("pov: brain is weird", 20) / 2, 10,
-                     20, BLACK);
+        switch (currentScreen) {
+            case MENU: {
+                DrawText("pov: brain is weird",
+                         WINDOW_WIDTH / 2 - MeasureText("pov: brain is weird", 20) / 2, 10,
+                         20, BLACK);
 
-            Vector2 separatorStart = {0, menuState.titleBarHeight};
-            Vector2 separatorEnd = {WINDOW_WIDTH, menuState.titleBarHeight};
-            DrawLineEx(separatorStart, separatorEnd, 3, BLACK);
+                Vector2 separatorStart = {0, menuState.titleBarHeight};
+                Vector2 separatorEnd = {WINDOW_WIDTH, menuState.titleBarHeight};
+                DrawLineEx(separatorStart, separatorEnd, 3, BLACK);
 
-            draw_menu_tiles(menuState);
-        }
-        break;
+                drawMenuTiles(menuState);
+            } break;
 
-        case LINES:
-        {
-            x1 = GetRandomValue(0, COLS);
-            y1 = GetRandomValue(0, ROWS);
-            x2 = GetRandomValue(0, COLS);
-            y2 = GetRandomValue(0, ROWS);
+            case LINES: {
+                x1 = GetRandomValue(0, COLS);
+                y1 = GetRandomValue(0, ROWS);
+                x2 = GetRandomValue(0, COLS);
+                y2 = GetRandomValue(0, ROWS);
 
-            if (!paused && frameCount % 15 == 0)
-                line(state, x1, y1, x2, y2);
+                if (!paused && frameCount % 15 == 0) line(state, x1, y1, x2, y2);
 
-            for (size_t y = 0; y < ROWS; y++)
-            {
-                for (size_t x = 0; x < COLS; x++)
-                {
-                    if (state[y][x])
-                    {
-                        DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
+                for (size_t y = 0; y < ROWS; y++) {
+                    for (size_t x = 0; x < COLS; x++) {
+                        if (state[y][x])
+                            DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
                     }
                 }
-            }
-        }
-        break;
+            } break;
 
-        default:
-            break;
+            default:
+                break;
         }
 
         EndDrawing();
