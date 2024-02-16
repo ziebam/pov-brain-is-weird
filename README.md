@@ -16,8 +16,15 @@ steps:
 
 1. clone the repo
 2. `gcc ./nob.c -o nob`
-3. `./nob` or `./nob -platform windows` for Windows or `nob -platform linux` for Linux
+3. `./nob` or `./nob -platform windows` for Windows or `./nob -platform linux` for Linux
 4. `./build/pov-brain-is-weird`
+
+keybindings:
+
+- arrows (<kbd>←</kbd><kbd>↓</kbd><kbd>↑</kbd><kbd>→</kbd>) to choose a simulation
+- <kbd>Enter</kbd> to select the simulation
+- <kbd>p</kbd> to pause/unpause
+- <kbd>ESC</kbd> to quit the simulation and go back to menu
 
 # credits
 
