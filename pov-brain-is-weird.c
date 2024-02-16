@@ -85,7 +85,7 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     }
 }
 
-const char *tileNames[] = {"placeholder", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
+const char *tileNames[] = {"lines", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
 void drawMenuTiles(MenuState menuState) {
     float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
     float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
@@ -115,6 +115,7 @@ void drawMenuTiles(MenuState menuState) {
     }
 }
 
+const Screen screens[] = {LINES, MENU, MENU, MENU, MENU, MENU};
 int main(void) {
     SetRandomSeed(time(NULL));
 
@@ -144,7 +145,10 @@ int main(void) {
 
         switch (currentScreen) {
             case MENU: {
-                if (IsKeyPressed(KEY_ENTER)) currentScreen = LINES;
+                if (IsKeyPressed(KEY_ENTER)) {
+                    short screenIdx = menuState.selectedTile.y * menuState.cols + menuState.selectedTile.x;
+                    currentScreen = screens[screenIdx];
+                }
 
                 if (IsKeyPressed(KEY_LEFT))
                     menuState.selectedTile.x = euclideanModulo((int)menuState.selectedTile.x - 1, menuState.cols);
