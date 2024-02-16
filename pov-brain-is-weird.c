@@ -22,7 +22,23 @@ typedef struct
     int cols;
     int spacing;
     int titleBarHeight;
+    Vector2 selectedTile;
 } MenuState;
+
+int get_sign(int n)
+{
+    if (n > 0)
+        return 1;
+    else if (n < 0)
+        return -1;
+    else
+        return 0;
+}
+
+int euclidean_modulo(int a, int b)
+{
+    return (a % b + b) % b;
+}
 
 void init_state(bool state[ROWS][COLS])
 {
@@ -33,16 +49,6 @@ void init_state(bool state[ROWS][COLS])
             state[y][x] = GetRandomValue(0, 1);
         }
     }
-}
-
-int get_sign(int n)
-{
-    if (n > 0)
-        return 1;
-    else if (n < 0)
-        return -1;
-    else
-        return 0;
 }
 
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
@@ -92,21 +98,35 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2)
     }
 }
 
+char tile_names[6][16] = {"placeholder", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
 void draw_menu_tiles(MenuState menuState)
 {
     float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
     float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
-    for (int i = 0; i < menuState.cols; i++)
+    for (int i = 0; i < menuState.rows; i++)
     {
-        for (int j = 0; j < menuState.rows; j++)
+        for (int j = 0; j < menuState.cols; j++)
         {
-            Rectangle outline = {
-                .x = menuState.spacing * (i + 1) + outlineWidth * i,
-                .y = menuState.titleBarHeight + menuState.spacing * (j + 1) + outlineHeight * j,
-                .width = outlineWidth,
-                .height = outlineHeight,
+            short tileIdx = i * menuState.cols + j;
+
+            float x = menuState.spacing * (j + 1) + outlineWidth * j;
+            float y = menuState.titleBarHeight + menuState.spacing * (i + 1) + outlineHeight * i;
+            float width = outlineWidth;
+            float height = outlineHeight;
+
+            Rectangle tile = {
+                .x = x,
+                .y = y,
+                .width = width,
+                .height = height,
             };
-            DrawRectangleLinesEx(outline, 5.0f, MAROON);
+            Color tileColor = (i == menuState.selectedTile.y && j == menuState.selectedTile.x) ? MAROON : BLACK;
+            DrawRectangleLinesEx(tile, 5.0f, tileColor);
+
+            const char *tileName = tile_names[tileIdx];
+            DrawText(tileName,
+                     x + width / 2 - MeasureText(tileName, 20) / 2, y + height / 2 - 10,
+                     20, BLACK);
         }
     }
 }
@@ -117,16 +137,16 @@ int main(void)
 
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
     SetExitKey(KEY_NULL);
-    Image icon = LoadImage("./resources/pov-you-wake-up-in-poland.png");
-    SetWindowIcon(icon);
+    SetWindowIcon(LoadImage("./resources/pov-you-wake-up-in-poland.png"));
     SetTargetFPS(60);
 
     Screen currentScreen = MENU;
     MenuState menuState = {
-        .rows = 3,
-        .cols = 4,
-        .spacing = 50,
+        .rows = 2,
+        .cols = 3,
+        .spacing = 40,
         .titleBarHeight = 40,
+        .selectedTile = {0, 0},
     };
 
     bool state[ROWS][COLS] = {false};
@@ -146,6 +166,15 @@ int main(void)
         {
             if (IsKeyPressed(KEY_ENTER))
                 currentScreen = LINES;
+
+            if (IsKeyPressed(KEY_LEFT))
+                menuState.selectedTile.x = euclidean_modulo((int)menuState.selectedTile.x - 1, menuState.cols);
+            if (IsKeyPressed(KEY_UP))
+                menuState.selectedTile.y = euclidean_modulo((int)menuState.selectedTile.y - 1, menuState.rows);
+            if (IsKeyPressed(KEY_RIGHT))
+                menuState.selectedTile.x = ((int)menuState.selectedTile.x + 1) % menuState.cols;
+            if (IsKeyPressed(KEY_DOWN))
+                menuState.selectedTile.y = ((int)menuState.selectedTile.y + 1) % menuState.rows;
         }
         break;
 
