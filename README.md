@@ -22,7 +22,7 @@ steps:
 keybindings:
 
 - arrows (<kbd>←</kbd><kbd>↓</kbd><kbd>↑</kbd><kbd>→</kbd>) to choose a simulation
-- <kbd>Enter</kbd> to select an animation
+- <kbd>Enter</kbd> to select the simulation
 - <kbd>p</kbd> to pause/unpause
 - <kbd>ESC</kbd> to quit the simulation and go back to menu
 
