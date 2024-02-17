@@ -15,7 +15,7 @@
 typedef enum Screen {
     MENU = 0,
     LINES,
-    CLOCK
+    CLOCK,
 } Screen;
 
 typedef struct {
@@ -25,6 +25,17 @@ typedef struct {
     int titleBarHeight;
     Vector2 selectedTile;
 } MenuState;
+
+typedef struct {
+    Vector2 p1;
+    Vector2 p2;
+} LinesState;
+
+typedef struct {
+    int radius;
+    Vector2 handOrigin;
+    Vector2 handDest;
+} ClockState;
 
 int getSign(int n) {
     if (n > 0)
@@ -39,10 +50,50 @@ int euclideanModulo(int a, int b) {
     return (a % b + b) % b;
 }
 
-void initState(bool state[ROWS][COLS]) {
+void initGrid(bool grid[ROWS][COLS]) {
     for (size_t y = 0; y < ROWS; y++) {
         for (size_t x = 0; x < COLS; x++) {
-            state[y][x] = GetRandomValue(0, 1);
+            grid[y][x] = GetRandomValue(0, 1);
+        }
+    }
+}
+
+void drawGrid(bool grid[ROWS][COLS]) {
+    for (size_t y = 0; y < ROWS; y++) {
+        for (size_t x = 0; x < COLS; x++) {
+            if (grid[y][x])
+                DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
+        }
+    }
+}
+
+const char *tileNames[] = {"lines", "clock", "placeholder", "placeholder", "placeholder", "placeholder"};
+const Screen screens[] = {LINES, CLOCK, MENU, MENU, MENU, MENU};
+void drawMenuTiles(MenuState menuState) {
+    float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
+    float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
+    for (int i = 0; i < menuState.rows; i++) {
+        for (int j = 0; j < menuState.cols; j++) {
+            short tileIdx = i * menuState.cols + j;
+
+            float x = menuState.spacing * (j + 1) + outlineWidth * j;
+            float y = menuState.titleBarHeight + menuState.spacing * (i + 1) + outlineHeight * i;
+            float width = outlineWidth;
+            float height = outlineHeight;
+
+            Rectangle tile = {
+                .x = x,
+                .y = y,
+                .width = width,
+                .height = height,
+            };
+            Color tileColor = (i == menuState.selectedTile.y && j == menuState.selectedTile.x) ? MAROON : BLACK;
+            DrawRectangleLinesEx(tile, 5.0f, tileColor);
+
+            const char *tileName = tileNames[tileIdx];
+            DrawText(tileName,
+                     x + width / 2 - MeasureText(tileName, 20) / 2, y + height / 2 - 10,
+                     20, BLACK);
         }
     }
 }
@@ -88,6 +139,10 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     }
 }
 
+void lineV(bool state[ROWS][COLS], Vector2 p1, Vector2 p2) {
+    line(state, p1.x, p1.y, p2.x, p2.y);
+}
+
 void circle(bool state[ROWS][COLS], Vector2 origin, int radius) {
     for (size_t y = 0; y < ROWS; y++) {
         for (size_t x = 0; x < COLS; x++) {
@@ -98,39 +153,11 @@ void circle(bool state[ROWS][COLS], Vector2 origin, int radius) {
     }
 }
 
-const char *tileNames[] = {"lines", "clock", "placeholder", "placeholder", "placeholder", "placeholder"};
-void drawMenuTiles(MenuState menuState) {
-    float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
-    float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
-    for (int i = 0; i < menuState.rows; i++) {
-        for (int j = 0; j < menuState.cols; j++) {
-            short tileIdx = i * menuState.cols + j;
-
-            float x = menuState.spacing * (j + 1) + outlineWidth * j;
-            float y = menuState.titleBarHeight + menuState.spacing * (i + 1) + outlineHeight * i;
-            float width = outlineWidth;
-            float height = outlineHeight;
-
-            Rectangle tile = {
-                .x = x,
-                .y = y,
-                .width = width,
-                .height = height,
-            };
-            Color tileColor = (i == menuState.selectedTile.y && j == menuState.selectedTile.x) ? MAROON : BLACK;
-            DrawRectangleLinesEx(tile, 5.0f, tileColor);
-
-            const char *tileName = tileNames[tileIdx];
-            DrawText(tileName,
-                     x + width / 2 - MeasureText(tileName, 20) / 2, y + height / 2 - 10,
-                     20, BLACK);
-        }
-    }
-}
-
-const Screen screens[] = {LINES, CLOCK, MENU, MENU, MENU, MENU};
 int main(void) {
     SetRandomSeed(time(NULL));
+
+    bool grid[ROWS][COLS] = {false};
+    initGrid(grid);
 
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "pov: brain is weird");
     SetExitKey(KEY_NULL);
@@ -146,16 +173,17 @@ int main(void) {
         .selectedTile = {0, 0},
     };
 
-    bool state[ROWS][COLS] = {false};
-    initState(state);
+    LinesState linesState = {
+        .p1 = {0},
+        .p2 = {0}};
+
+    ClockState clockState = {
+        .radius = ROWS / 2 * 3 / 4,
+        .handOrigin = {COLS / 2, ROWS / 2},
+        .handDest = {COLS / 2, ROWS / 2 - clockState.radius}};
+
     bool paused = false;
-    // Input polling is done per frame, so I'm counting the frames manually to slow down the
-    // rendering while keeping the controls responsive.
     unsigned int frameCount = 0;
-    unsigned short x1, y1, x2, y2;
-    int clockRadius = ROWS / 2 * 3 / 4;
-    Vector2 clockHandOrigin = {COLS / 2, ROWS / 2};
-    Vector2 clockHandDest = {COLS / 2, ROWS / 2 - clockRadius};
     while (!WindowShouldClose()) {
         frameCount = (frameCount + 1) % 60;
 
@@ -176,14 +204,13 @@ int main(void) {
                     menuState.selectedTile.y = ((int)menuState.selectedTile.y + 1) % menuState.rows;
             } break;
 
-            case LINES: {
+            case LINES:
+            case CLOCK:
+            default: {
                 if (IsKeyPressed(KEY_ESCAPE)) currentScreen = MENU;
 
                 if (IsKeyPressed(KEY_P)) paused = !paused;
             } break;
-
-            default:
-                break;
         }
 
         BeginDrawing();
@@ -204,45 +231,39 @@ int main(void) {
             } break;
 
             case LINES: {
-                x1 = GetRandomValue(0, COLS);
-                y1 = GetRandomValue(0, ROWS);
-                x2 = GetRandomValue(0, COLS);
-                y2 = GetRandomValue(0, ROWS);
-
-                if (!paused && frameCount % 15 == 0) line(state, x1, y1, x2, y2);
-
-                for (size_t y = 0; y < ROWS; y++) {
-                    for (size_t x = 0; x < COLS; x++) {
-                        if (state[y][x])
-                            DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
-                    }
+                if (!paused && frameCount % 15 == 0) {
+                    linesState.p1.x = GetRandomValue(0, COLS);
+                    linesState.p1.y = GetRandomValue(0, ROWS);
+                    linesState.p2.x = GetRandomValue(0, COLS);
+                    linesState.p2.y = GetRandomValue(0, ROWS);
+                    lineV(grid, linesState.p1, linesState.p2);
                 }
+
+                drawGrid(grid);
             } break;
 
             case CLOCK: {
-                if (!paused && frameCount % 3 == 0) circle(state, clockHandOrigin, clockRadius);
+                if (!paused && frameCount % 3 == 0) circle(grid, clockState.handOrigin, clockState.radius);
 
                 if (!paused && frameCount == 0) {
-                    Vector2 v = {clockHandDest.x - clockHandOrigin.x, clockHandDest.y - clockHandOrigin.y};
+                    Vector2 v = {clockState.handDest.x - clockState.handOrigin.x, clockState.handDest.y - clockState.handOrigin.y};
                     v.x = v.x * cos(CLOCK_STEP) - v.y * sin(CLOCK_STEP);
                     v.y = v.x * sin(CLOCK_STEP) + v.y * cos(CLOCK_STEP);
 
-                    clockHandDest.x = round(clockHandOrigin.x + v.x);
-                    clockHandDest.y = round(clockHandOrigin.y + v.y);
+                    clockState.handDest.x = round(clockState.handOrigin.x + v.x);
+                    clockState.handDest.y = round(clockState.handOrigin.y + v.y);
 
-                    line(state, clockHandOrigin.x, clockHandOrigin.y, clockHandDest.x, clockHandDest.y);
+                    lineV(grid, clockState.handOrigin, clockState.handDest);
                 }
 
-                for (size_t y = 0; y < ROWS; y++) {
-                    for (size_t x = 0; x < COLS; x++) {
-                        if (state[y][x])
-                            DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
-                    }
-                }
+                drawGrid(grid);
             } break;
 
-            default:
-                break;
+            default: {
+                DrawText("you shouldn't be here",
+                         WINDOW_WIDTH / 2 - MeasureText("you shouldn't be here", 20) / 2, WINDOW_HEIGHT / 2 - 10,
+                         20, BLACK);
+            } break;
         }
 
         EndDrawing();
