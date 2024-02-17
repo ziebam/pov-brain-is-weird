@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -6,13 +7,15 @@
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-#define TILE_SIZE 10
+#define TILE_SIZE 5
 #define ROWS WINDOW_HEIGHT / TILE_SIZE
 #define COLS WINDOW_WIDTH / TILE_SIZE
+#define CLOCK_STEP PI / 30  // 6 degrees in radians
 
 typedef enum Screen {
     MENU = 0,
-    LINES
+    LINES,
+    CLOCK
 } Screen;
 
 typedef struct {
@@ -85,7 +88,17 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     }
 }
 
-const char *tileNames[] = {"lines", "placeholder", "placeholder", "placeholder", "placeholder", "placeholder"};
+void circle(bool state[ROWS][COLS], Vector2 origin, int radius) {
+    for (size_t y = 0; y < ROWS; y++) {
+        for (size_t x = 0; x < COLS; x++) {
+            if (round(sqrt((x - origin.x) * (x - origin.x) + (y - origin.y) * (y - origin.y))) == radius) {
+                state[y][x] = !state[y][x];
+            }
+        }
+    }
+}
+
+const char *tileNames[] = {"lines", "clock", "placeholder", "placeholder", "placeholder", "placeholder"};
 void drawMenuTiles(MenuState menuState) {
     float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
     float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
@@ -115,7 +128,7 @@ void drawMenuTiles(MenuState menuState) {
     }
 }
 
-const Screen screens[] = {LINES, MENU, MENU, MENU, MENU, MENU};
+const Screen screens[] = {LINES, CLOCK, MENU, MENU, MENU, MENU};
 int main(void) {
     SetRandomSeed(time(NULL));
 
@@ -140,6 +153,9 @@ int main(void) {
     // rendering while keeping the controls responsive.
     unsigned int frameCount = 0;
     unsigned short x1, y1, x2, y2;
+    int clockRadius = ROWS / 2 * 3 / 4;
+    Vector2 clockHandOrigin = {COLS / 2, ROWS / 2};
+    Vector2 clockHandDest = {COLS / 2, ROWS / 2 - clockRadius};
     while (!WindowShouldClose()) {
         frameCount = (frameCount + 1) % 60;
 
@@ -194,6 +210,28 @@ int main(void) {
                 y2 = GetRandomValue(0, ROWS);
 
                 if (!paused && frameCount % 15 == 0) line(state, x1, y1, x2, y2);
+
+                for (size_t y = 0; y < ROWS; y++) {
+                    for (size_t x = 0; x < COLS; x++) {
+                        if (state[y][x])
+                            DrawRectangle(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLACK);
+                    }
+                }
+            } break;
+
+            case CLOCK: {
+                if (!paused && frameCount % 3 == 0) circle(state, clockHandOrigin, clockRadius);
+
+                if (!paused && frameCount == 0) {
+                    Vector2 v = {clockHandDest.x - clockHandOrigin.x, clockHandDest.y - clockHandOrigin.y};
+                    v.x = v.x * cos(CLOCK_STEP) - v.y * sin(CLOCK_STEP);
+                    v.y = v.x * sin(CLOCK_STEP) + v.y * cos(CLOCK_STEP);
+
+                    clockHandDest.x = round(clockHandOrigin.x + v.x);
+                    clockHandDest.y = round(clockHandOrigin.y + v.y);
+
+                    line(state, clockHandOrigin.x, clockHandOrigin.y, clockHandDest.x, clockHandDest.y);
+                }
 
                 for (size_t y = 0; y < ROWS; y++) {
                     for (size_t x = 0; x < COLS; x++) {
