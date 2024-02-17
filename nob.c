@@ -45,23 +45,22 @@ bool buildRaylib() {
     if (!nob_procs_wait(procs)) nob_return_defer(false);
 
     cmd.count = 0;
-    Nob_String_Builder inputPath = {0};
-    nob_cmd_append(&cmd, "ar", "-crs", "./build/raylib/gcc/libraylib.a");
-    for (size_t i = 0; i < NOB_ARRAY_LEN(raylibModules); ++i) {
-        inputPath.count = 0;
-        nob_sb_append_cstr(&inputPath, "./build/raylib/gcc/");
-        nob_sb_append_cstr(&inputPath, raylibModules[i]);
-        nob_sb_append_cstr(&inputPath, ".o");
-        nob_sb_append_null(&inputPath);
-        nob_cmd_append(&cmd, nob_temp_strdup(inputPath.items));
+
+    const char *libraylibPath = nob_temp_sprintf("%s/libraylib.a", buildPath);
+
+    if (nob_needs_rebuild(libraylibPath, objectFiles.items, objectFiles.count)) {
+        nob_cmd_append(&cmd, "ar", "-crs", libraylibPath);
+        for (size_t i = 0; i < NOB_ARRAY_LEN(raylibModules); ++i) {
+            const char *inputPath = nob_temp_sprintf("%s/%s.o", buildPath, raylibModules[i]);
+            nob_cmd_append(&cmd, inputPath);
+        }
+        if (!nob_cmd_run_sync(cmd)) nob_return_defer(false);
     }
-    if (!nob_cmd_run_sync(cmd)) nob_return_defer(false);
 
 defer:
     nob_cmd_free(cmd);
     nob_da_free(objectFiles);
     nob_da_free(procs);
-    nob_temp_reset();
     return result;
 }
 
