@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define NOB_IMPLEMENTATION
+#include "nob.h"
 #include "raylib.h"
 
 #define WINDOW_WIDTH 800
@@ -16,6 +18,7 @@ typedef enum Screen {
     MENU = 0,
     LINES,
     CLOCK,
+    DVD,
 } Screen;
 
 typedef struct {
@@ -36,6 +39,14 @@ typedef struct {
     Vector2 handOrigin;
     Vector2 handDest;
 } ClockState;
+
+typedef struct {
+    int maskWidth;
+    int maskHeight;
+    bool *mask;
+    Vector2 direction;
+    Vector2 origin;
+} DvdState;
 
 int getSign(int n) {
     if (n > 0)
@@ -67,8 +78,8 @@ void drawGrid(bool grid[ROWS][COLS]) {
     }
 }
 
-const char *tileNames[] = {"lines", "clock", "placeholder", "placeholder", "placeholder", "placeholder"};
-const Screen screens[] = {LINES, CLOCK, MENU, MENU, MENU, MENU};
+const char *tileNames[] = {"lines", "clock", "dvd", "placeholder", "placeholder", "placeholder"};
+const Screen screens[] = {LINES, CLOCK, DVD, MENU, MENU, MENU};
 void drawMenuTiles(MenuState menuState) {
     float outlineWidth = (WINDOW_WIDTH - (menuState.cols + 1) * menuState.spacing) / menuState.cols;
     float outlineHeight = (WINDOW_HEIGHT - menuState.titleBarHeight - (menuState.rows + 1) * menuState.spacing) / menuState.rows;
@@ -100,7 +111,7 @@ void drawMenuTiles(MenuState menuState) {
 
 // Flip the pixels between (x1, y1) and (x2, y2) using Bresenham's algorithm generalized to work
 // with any slope. Credit: https://www.uobabylon.edu.iq/eprints/publication_2_22893_6215.pdf.
-void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
+void line(bool grid[ROWS][COLS], int x1, int y1, int x2, int y2) {
     int dx, dy, x, y, e, a, b, s1, s2, swapped = 0, temp;
 
     dx = abs(x2 - x1);
@@ -123,7 +134,7 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     x = x1;
     y = y1;
     for (int i = 1; i < dx; i++) {
-        state[y][x] = !state[y][x];
+        grid[y][x] = !grid[y][x];
 
         if (e < 0) {
             if (swapped)
@@ -139,16 +150,93 @@ void line(bool state[ROWS][COLS], int x1, int y1, int x2, int y2) {
     }
 }
 
-void lineV(bool state[ROWS][COLS], Vector2 p1, Vector2 p2) {
-    line(state, p1.x, p1.y, p2.x, p2.y);
+void lineV(bool grid[ROWS][COLS], Vector2 p1, Vector2 p2) {
+    line(grid, p1.x, p1.y, p2.x, p2.y);
 }
 
-void circle(bool state[ROWS][COLS], Vector2 origin, int radius) {
+void rectangle(bool grid[ROWS][COLS], Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4) {
+    lineV(grid, p1, p2);
+    lineV(grid, p2, p3);
+    lineV(grid, p3, p4);
+    lineV(grid, p4, p1);
+}
+
+void circle(bool grid[ROWS][COLS], Vector2 origin, int radius) {
     for (size_t y = 0; y < ROWS; y++) {
         for (size_t x = 0; x < COLS; x++) {
             if (round(sqrt((x - origin.x) * (x - origin.x) + (y - origin.y) * (y - origin.y))) == radius) {
-                state[y][x] = !state[y][x];
+                grid[y][x] = !grid[y][x];
             }
+        }
+    }
+}
+
+void parseMaskFromPpm(const char *filePath, DvdState *dvdState) {
+    Nob_String_Builder sbContent = {0};
+    if (!nob_read_entire_file(filePath, &sbContent)) exit(1);
+    Nob_String_View svContent = nob_sv_from_parts(sbContent.items, sbContent.count);
+
+    size_t linesCount = 0;
+    bool *mask;
+    for (; svContent.count > 0; ++linesCount) {
+        Nob_String_View line = nob_sv_chop_by_delim(&svContent, '\n');
+        if (linesCount == 0) {
+            if (!nob_sv_eq(line, nob_sv_from_cstr("P1"))) {
+                nob_log(NOB_ERROR, "Invalid file format. Expected .pbm with magic number P1, got " SV_Fmt ".", SV_Arg(line));
+                exit(1);
+            }
+        }
+
+        if (linesCount == 1) {
+            dvdState->maskWidth = strtol(nob_sv_chop_by_delim(&line, ' ').data, NULL, 10);
+            dvdState->maskHeight = strtol(line.data, NULL, 10);
+            if (dvdState->maskWidth == 0 || dvdState->maskHeight == 0) {
+                nob_log(NOB_ERROR, "Unexpected dimension in the %s file: %dx%d", filePath, dvdState->maskWidth, dvdState->maskHeight);
+                exit(1);
+            }
+            if (dvdState->maskWidth > COLS) {
+                nob_log(NOB_ERROR, "Mask too wide, should be less than %d, got %d.", COLS, dvdState->maskWidth);
+                exit(1);
+            }
+            if (dvdState->maskHeight > ROWS) {
+                nob_log(NOB_ERROR, "Mask too tall, should be less than %d, got %d.", ROWS, dvdState->maskHeight);
+                exit(1);
+            }
+
+            mask = malloc(dvdState->maskWidth * dvdState->maskHeight * sizeof(bool));
+            if (!mask) {
+                nob_log(NOB_ERROR, "No RAM?");
+                exit(1);
+            }
+        } else {
+            for (int i = 0; i < dvdState->maskWidth; i++) {
+                int color;  // 0 for white, 1 for black in the .pbm format
+                if (i == dvdState->maskWidth - 1) {
+                    color = strtol(nob_temp_sv_to_cstr(line), NULL, 10);
+                } else {
+                    color = strtol(nob_temp_sv_to_cstr(nob_sv_chop_by_delim(&line, ' ')), NULL, 10);
+                }
+
+                if (color < 0 || color > 1) {
+                    nob_log(NOB_ERROR, "Unexpected color in the %s file, expected 0 or 1, got: %d.", filePath, color);
+                    exit(1);
+                }
+
+                mask[(linesCount - 2) * dvdState->maskWidth + i] = !color;
+            }
+        }
+    }
+
+    dvdState->mask = mask;
+}
+
+void dvd(bool grid[ROWS][COLS], DvdState dvdState) {
+    for (int y = dvdState.origin.y; y < dvdState.origin.y + dvdState.maskHeight; y++) {
+        for (int x = dvdState.origin.x; x < dvdState.origin.x + dvdState.maskWidth; x++) {
+            int maskX = x - dvdState.origin.x;
+            int maskY = y - dvdState.origin.y;
+
+            if (dvdState.mask[dvdState.maskWidth * maskY + maskX]) grid[y][x] = !grid[y][x];
         }
     }
 }
@@ -182,6 +270,13 @@ int main(void) {
         .handOrigin = {COLS / 2, ROWS / 2},
         .handDest = {COLS / 2, ROWS / 2 - clockState.radius}};
 
+    DvdState dvdState = {0};
+    parseMaskFromPpm("./resources/dvd.pbm", &dvdState);
+    dvdState.direction = (Vector2){1, 1};
+    int originX = GetRandomValue(0, COLS - dvdState.maskWidth);
+    int originY = GetRandomValue(0, ROWS - dvdState.maskHeight);
+    dvdState.origin = (Vector2){originX, originY};
+
     bool paused = false;
     unsigned int frameCount = 0;
     while (!WindowShouldClose()) {
@@ -206,6 +301,7 @@ int main(void) {
 
             case LINES:
             case CLOCK:
+            case DVD:
             default: {
                 if (IsKeyPressed(KEY_ESCAPE)) currentScreen = MENU;
 
@@ -254,6 +350,30 @@ int main(void) {
                     clockState.handDest.y = round(clockState.handOrigin.y + v.y);
 
                     lineV(grid, clockState.handOrigin, clockState.handDest);
+                }
+
+                drawGrid(grid);
+            } break;
+
+            case DVD: {
+                if (!paused && frameCount % 2 == 0) {
+                    // collision checks
+                    // top
+                    if (dvdState.origin.y == 0)
+                        dvdState.direction.y = 1;
+                    // right
+                    if (dvdState.origin.x + dvdState.maskWidth == COLS)
+                        dvdState.direction.x = -1;
+                    // bottom
+                    if (dvdState.origin.y + dvdState.maskHeight == ROWS)
+                        dvdState.direction.y = -1;
+                    // left
+                    if (dvdState.origin.x == 0)
+                        dvdState.direction.x = 1;
+
+                    dvdState.origin.x += dvdState.direction.x;
+                    dvdState.origin.y += dvdState.direction.y;
+                    dvd(grid, dvdState);
                 }
 
                 drawGrid(grid);
