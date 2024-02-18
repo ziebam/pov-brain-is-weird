@@ -1,3 +1,6 @@
+// TODO: Optimize drawing so larger canvases don't lag. Mostly including drawing in the functions
+// that manipulate the state, so it doesn't need to be iterated over twice.
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -171,7 +174,7 @@ void circle(bool grid[ROWS][COLS], Vector2 origin, int radius) {
     }
 }
 
-void parseMaskFromPpm(const char *filePath, DvdState *dvdState) {
+void parseMaskFromPbm(const char *filePath, DvdState *dvdState) {
     Nob_String_Builder sbContent = {0};
     if (!nob_read_entire_file(filePath, &sbContent)) exit(1);
     Nob_String_View svContent = nob_sv_from_parts(sbContent.items, sbContent.count);
@@ -271,7 +274,7 @@ int main(void) {
         .handDest = {COLS / 2, ROWS / 2 - clockState.radius}};
 
     DvdState dvdState = {0};
-    parseMaskFromPpm("./resources/dvd.pbm", &dvdState);
+    parseMaskFromPbm("./resources/dvd.pbm", &dvdState);
     dvdState.direction = (Vector2){1, 1};
     int originX = GetRandomValue(0, COLS - dvdState.maskWidth);
     int originY = GetRandomValue(0, ROWS - dvdState.maskHeight);
