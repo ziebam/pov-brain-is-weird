@@ -194,11 +194,11 @@ void parseMaskFromPpm(const char *filePath, DvdState *dvdState) {
                 nob_log(NOB_ERROR, "Unexpected dimension in the %s file: %dx%d", filePath, dvdState->maskWidth, dvdState->maskHeight);
                 exit(1);
             }
-            if (dvdState->maskWidth > COLS) {
+            if (dvdState->maskWidth >= COLS) {
                 nob_log(NOB_ERROR, "Mask too wide, should be less than %d, got %d.", COLS, dvdState->maskWidth);
                 exit(1);
             }
-            if (dvdState->maskHeight > ROWS) {
+            if (dvdState->maskHeight >= ROWS) {
                 nob_log(NOB_ERROR, "Mask too tall, should be less than %d, got %d.", ROWS, dvdState->maskHeight);
                 exit(1);
             }
