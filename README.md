@@ -30,7 +30,7 @@ keybindings:
 
 `nob` -- amazing, minimalist build system by [Tsoding](https://github.com/tsoding), license included in `nob.h`
 
-`raylib` -- amazing, minimalist game-making library, [license](./raylib/raylib-5.0/LICENSE) included in the repository as it's built statically
+`raylib` -- amazing, minimalist game-making library, [license](./raylib/raylib-5.0/LICENSE) vendored in the repository
 
 window icon -- taken from [Tsoding](https://github.com/tsoding)'s stream/Discord server with his persmission: [click!](https://twitchemotes.com/channels/110240192)
 
